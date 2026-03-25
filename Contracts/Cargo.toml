@@ -5,6 +5,7 @@ members = [
     "contracts/messaging",
     "contracts/academy",
     "contracts/academy-rewards",
+    "integration-tests",
     "shared",
 ]
 resolver = "2"
