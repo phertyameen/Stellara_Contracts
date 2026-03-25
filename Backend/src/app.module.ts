@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
+import { DocsController } from './docs/docs.controller';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
     AuthModule,
     WebsocketModule,
   ],
-  controllers: [AppController, UserController],
+  controllers: [AppController, UserController, DocsController],
   providers: [AppService],
 })
 export class AppModule {}
