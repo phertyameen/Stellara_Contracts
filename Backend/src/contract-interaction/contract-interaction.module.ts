@@ -6,12 +6,14 @@ import { ContractInteractionController } from './contract-interaction.controller
 import { TransactionRecord } from './entities/transaction-record.entity';
 import { ContractMetadata } from './entities/contract-metadata.entity';
 import { AuditModule } from '../audit/audit.module';
+import { RabbitmqModule } from '../messaging/rabbitmq/rabbitmq.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([TransactionRecord, ContractMetadata]),
     ConfigModule,
     AuditModule,
+    RabbitmqModule,
   ],
   controllers: [ContractInteractionController],
   providers: [ContractInteractionService],

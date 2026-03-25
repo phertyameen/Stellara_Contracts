@@ -18,6 +18,12 @@ import { LifecycleModule } from './lifecycle/lifecycle.module';
 import { IndexAnalysisModule } from './index-analysis/index-analysis.module';
 import { ErrorHandlingModule } from './common/error-handling.module';
 import { BackupModule } from './backup/backup.module';
+import { QuotaModule } from './quota/quota.module';
+import { AdminModule } from './admin/admin.module';
+import { TenantModule } from './tenant/tenant.module';
+import { UserController } from './user.controller';
+import { PrismaModule } from './prisma.module';
+import { RabbitmqModule } from './messaging/rabbitmq/rabbitmq.module';
 
 @Module({
   imports: [
@@ -35,6 +41,7 @@ import { BackupModule } from './backup/backup.module';
     }),
     RedisModule,
     DatabaseModule,
+    PrismaModule,
     LifecycleModule,
     RateLimitModule,
     SessionModule,
@@ -43,6 +50,10 @@ import { BackupModule } from './backup/backup.module';
     WebsocketModule,
     // Backup and disaster recovery module
     BackupModule,
+    QuotaModule,
+    AdminModule,
+    TenantModule,
+    RabbitmqModule,
   ],
   controllers: [AppController, UserController, DocsController],
   providers: [AppService],

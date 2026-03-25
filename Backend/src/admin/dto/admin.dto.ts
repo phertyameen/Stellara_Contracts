@@ -110,6 +110,9 @@ export class SystemMetricsDto {
 
   @ApiProperty()
   cacheHitRate: number;
+
+  @ApiProperty()
+  cacheEvictionRate: number;
 }
 
 export class TenantUsageDto {

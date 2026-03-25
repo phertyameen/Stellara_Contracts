@@ -18,6 +18,7 @@ import { TransactionRecord, TransactionStatus, TransactionType } from './entitie
 import { ContractMetadata, ContractStatus } from './entities/contract-metadata.entity';
 import { ContractCallDto, ContractDeployDto, TransactionStatusDto } from './dto/contract-call.dto';
 import { AuditService } from '../audit/audit.service';
+import { EventBusService } from '../messaging/rabbitmq/event-bus.service';
 
 @Injectable()
 export class ContractInteractionService {
@@ -33,6 +34,7 @@ export class ContractInteractionService {
     private configService: ConfigService,
     private dataSource: DataSource,
     private auditService: AuditService,
+    private readonly eventBus: EventBusService,
   ) {
     const stellarUrl = this.configService.get<string>('STELLAR_HORIZON_URL') || 'https://horizon-testnet.stellar.org';
     this.networkPassphrase = this.configService.get<string>('STELLAR_NETWORK_PASSPHRASE') || Networks.TESTNET;
@@ -102,6 +104,8 @@ export class ContractInteractionService {
         resource: contractAddress,
         details: { functionName, parameters, transactionHash: result.hash },
       });
+
+      await this.publishDomainEventsForContractCall(transactionRecord, functionName);
 
       return transactionRecord;
     } catch (error) {
@@ -408,5 +412,42 @@ export class ContractInteractionService {
     await this.contractRepository.update({ id: contractId }, { 
       lastActivityAt: new Date() 
     });
+  }
+
+  private async publishDomainEventsForContractCall(
+    transactionRecord: TransactionRecord,
+    functionName: string,
+  ): Promise<void> {
+    const fn = String(functionName || '').toLowerCase();
+    const params = transactionRecord.functionCall?.parameters ?? [];
+
+    if (fn === 'trade' || fn.includes('trade')) {
+      await this.eventBus.publish('TradeExecuted', {
+        transactionId: transactionRecord.id,
+        transactionHash: transactionRecord.transactionHash,
+        userId: transactionRecord.userId,
+        contractId: transactionRecord.contractId,
+        functionName,
+        parameters: params,
+        createdAt: transactionRecord.createdAt?.toISOString?.() ?? new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (
+      fn.includes('payment') ||
+      fn.includes('pay') ||
+      fn.includes('contribution')
+    ) {
+      await this.eventBus.publish('PaymentProcessed', {
+        transactionId: transactionRecord.id,
+        transactionHash: transactionRecord.transactionHash,
+        userId: transactionRecord.userId,
+        contractId: transactionRecord.contractId,
+        functionName,
+        parameters: params,
+        createdAt: transactionRecord.createdAt?.toISOString?.() ?? new Date().toISOString(),
+      });
+    }
   }
 }

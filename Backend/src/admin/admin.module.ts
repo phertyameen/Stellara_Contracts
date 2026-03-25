@@ -13,6 +13,7 @@ import { VoiceJob } from '../voice/entities/voice-job.entity';
 import { AuditModule } from '../audit/audit.module';
 import { SearchModule } from '../search/search.module';
 import { ContractInteractionModule } from '../contract-interaction/contract-interaction.module';
+import { AdvancedCacheModule } from '../cache/advanced-cache.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ContractInteractionModule } from '../contract-interaction/contract-inte
     AuditModule,
     SearchModule,
     ContractInteractionModule,
+    AdvancedCacheModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

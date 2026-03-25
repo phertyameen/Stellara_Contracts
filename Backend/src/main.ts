@@ -9,6 +9,8 @@ import { StructuredLoggerService, ClsMiddleware, CorrelationIdMiddleware } from 
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { InflightRequestMiddleware } from './lifecycle/inflight-request.middleware';
 import { ApplicationStateService } from './lifecycle/application-state.service';
+import { inputSanitizationMiddleware } from './security/sanitization/input-sanitization.middleware';
+import { TenantQuotaMiddleware } from './quota/tenant-quota.middleware';
 
 async function bootstrap() {
   // Create app with buffer logs to ensure we can use our custom logger
@@ -23,6 +25,7 @@ async function bootstrap() {
   const inflightRequestMiddleware = app.get(InflightRequestMiddleware);
   const appState = app.get(ApplicationStateService);
   const userThrottlerGuard = app.get(UserThrottlerGuard);
+  const tenantQuotaMiddleware = app.get(TenantQuotaMiddleware);
 
   // Use structured logger
   app.useLogger(logger);
@@ -46,6 +49,12 @@ async function bootstrap() {
 
   // Global middleware
   app.use(cookieParser());
+
+  // Global input sanitization (security hardening)
+  app.use(inputSanitizationMiddleware);
+
+  // Tenant quota enforcement (API-call quotas)
+  app.use(tenantQuotaMiddleware.use.bind(tenantQuotaMiddleware));
 
   // Correlation ID middleware for all routes
   app.use(correlationIdMiddleware.use.bind(correlationIdMiddleware));

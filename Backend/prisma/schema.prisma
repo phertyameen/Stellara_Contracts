@@ -45,6 +45,7 @@ model User {
   reputationHistory    ReputationHistory[]
   notificationSettings NotificationSetting?
   notifications        Notification[]
+  tenantMembers       TenantMember[]
 
   @@map("users")
 }
@@ -289,6 +290,11 @@ enum TenantPlan {
   ENTERPRISE
 }
 
+enum ApiOveragePolicy {
+  HARD_STOP
+  BILL_OVERAGE
+}
+
 model Tenant {
   id        String       @id @default(cuid())
   name      String       @unique
@@ -299,8 +305,13 @@ model Tenant {
   updatedAt DateTime     @updatedAt @map("updated_at")
 
   settings  TenantSettings?
+  calls     Call[]
+  stakeLedgers StakeLedger[]
+  claims    Claim[]
+  pools     Pool[]
   users     User[]
   auditLogs TenantAuditLog[]
+  tenantMembers TenantMember[]
 
   @@map("tenants")
 }
@@ -311,6 +322,9 @@ model TenantSettings {
   tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   maxUsers             Int      @default(10) @map("max_users")
   maxProjects          Int      @default(5) @map("max_projects")
+  apiCallsPerMonthLimit Int    @default(100000) @map("api_calls_per_month_limit")
+  storageGbLimit        Int    @default(100) @map("storage_gb_limit")
+  apiOveragePolicy      ApiOveragePolicy @default(HARD_STOP) @map("api_overage_policy")
   allowPublicProjects  Boolean  @default(true) @map("allow_public_projects")
   notificationsEnabled Boolean  @default(true) @map("notifications_enabled")
   createdAt            DateTime @default(now()) @map("created_at")
@@ -381,44 +395,6 @@ model EncryptionAuditLog {
   @@index([action])
   @@index([success])
   @@map("encryption_audit_logs")
-}
-
-model Tenant {
-  id        String       @id @default(uuid())
-  slug      String       @unique
-  name      String
-  status    TenantStatus @default(ACTIVE)
-  metadata  Json?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  users       User[]
-  calls       Call[]
-  stakeLedger StakeLedger[]
-  claims      Claim[]
-  pools       Pool[]
-
-  @@index([status])
-  @@map("tenants")
-}
-
-model User {
-  id            String   @id @default(uuid())
-  tenantId      String
-  email         String
-  walletAddress String?
-  name          String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-
-  @@unique([tenantId, email])
-  @@unique([tenantId, walletAddress])
-  @@index([tenantId, id])
-  @@index([tenantId, email])
-  @@index([tenantId, walletAddress])
-  @@map("users")
 }
 
 model Call {
@@ -504,12 +480,6 @@ model Pool {
   @@index([tenantId, name])
   @@index([tenantId, createdAt])
   @@map("pools")
-}
-
-enum TenantStatus {
-  ACTIVE
-  SUSPENDED
-  ARCHIVED
 }
 
 enum CallOutcome {

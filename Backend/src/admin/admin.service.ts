@@ -14,6 +14,7 @@ import { VoiceJob } from '../voice/entities/voice-job.entity';
 
 import { SearchService } from '../search/search.service';
 import { AuditService } from '../audit/audit.service';
+import { AdvancedCacheService } from '../cache/advanced-cache.service';
 
 import {
   UserFilterDto,
@@ -53,6 +54,7 @@ export class AdminService {
     private searchService: SearchService,
     private auditService: AuditService,
     private jwtService: JwtService,
+    private readonly cache: AdvancedCacheService,
   ) {}
 
   async getUsers(filter: UserFilterDto, page = 1, limit = 20): Promise<{ users: User[]; total: number }> {
@@ -177,6 +179,7 @@ export class AdminService {
       diskUsage,
       databaseConnections,
       cacheHitRate,
+      cacheEvictionRate,
     ] = await Promise.all([
       this.userRepository.count(),
       this.userRepository.count({ where: { status: UserStatus.ACTIVE } }),
@@ -189,6 +192,7 @@ export class AdminService {
       this.getDiskUsage(),
       this.getDatabaseConnections(),
       this.getCacheHitRate(),
+      this.getCacheEvictionRate(),
     ]);
 
     return {
@@ -203,6 +207,7 @@ export class AdminService {
       diskUsage,
       databaseConnections,
       cacheHitRate,
+      cacheEvictionRate,
     };
   }
 
@@ -513,6 +518,16 @@ export class AdminService {
   }
 
   private async getCacheHitRate(): Promise<number> {
-    return 95.5;
+    const analytics = this.cache.getAnalytics();
+    return analytics.totalRequests
+      ? Math.round(analytics.hitRate * 1000) / 10
+      : 0;
+  }
+
+  private async getCacheEvictionRate(): Promise<number> {
+    const analytics = this.cache.getAnalytics();
+    return analytics.totalRequests
+      ? Math.round(analytics.evictionRate * 1000) / 10
+      : 0;
   }
 }
