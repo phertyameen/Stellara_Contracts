@@ -60,7 +60,9 @@ export class AdvancedCacheService {
   private readonly hotKeyAccess = new Map<string, { count: number; firstSeenAt: number }>();
   private readonly hotKeyWindowMs = Number(process.env.CACHE_HOTKEY_WINDOW_MS ?? 60_000);
   private readonly hotKeyThreshold = Number(process.env.CACHE_HOTKEY_THRESHOLD ?? 100);
-  private readonly hotKeyTtlBoostSeconds = Number(process.env.CACHE_HOTKEY_TTL_BOOST_SECONDS ?? 120);
+  private readonly hotKeyTtlBoostSeconds = Number(
+    process.env.CACHE_HOTKEY_TTL_BOOST_SECONDS ?? 120,
+  );
 
   constructor(private readonly redisService: RedisService) {}
 
@@ -73,7 +75,10 @@ export class AdvancedCacheService {
   }
 
   private cacheKey(baseKey: string, tags?: string[]): string {
-    const tagSuffix = (tags?.length ? tags.sort().join('|') : 'no-tags').replace(/[^a-zA-Z0-9:|_-]/g, '_');
+    const tagSuffix = (tags?.length ? tags.sort().join('|') : 'no-tags').replace(
+      /[^a-zA-Z0-9:|_-]/g,
+      '_',
+    );
     return `${this.schemaCacheVersion}:${tagSuffix}:${baseKey}`;
   }
 
@@ -240,7 +245,11 @@ export class AdvancedCacheService {
     return this.getOrSet(baseKey, fetcher, options, tags);
   }
 
-  async get<T>(baseKey: string, options: CacheOptions<T> = {}, tags: string[] = []): Promise<T | null> {
+  async get<T>(
+    baseKey: string,
+    options: CacheOptions<T> = {},
+    tags: string[] = [],
+  ): Promise<T | null> {
     const ttlSeconds = this.l1TtlSeconds(options);
     const effective = await this.effectiveKey(baseKey, tags);
 
@@ -264,7 +273,12 @@ export class AdvancedCacheService {
     }
   }
 
-  async set<T>(baseKey: string, value: T, options: CacheOptions<T> = {}, tags: string[] = []): Promise<void> {
+  async set<T>(
+    baseKey: string,
+    value: T,
+    options: CacheOptions<T> = {},
+    tags: string[] = [],
+  ): Promise<void> {
     const ttlSeconds = this.l1TtlSeconds(options);
     const effective = await this.effectiveKey(baseKey, tags);
     const redis = this.redisService.getClient();
@@ -312,4 +326,3 @@ export class AdvancedCacheService {
     return { ...this.stats, totalRequests, hitRate, evictionRate };
   }
 }
-

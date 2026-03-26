@@ -45,10 +45,7 @@ export class PricesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /** Subscribe to price updates for a specific asset (e.g. "XLM-USDC") */
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('subscribe:asset')
-  async subscribeAsset(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { asset: string },
-  ) {
+  async subscribeAsset(@ConnectedSocket() client: Socket, @MessageBody() data: { asset: string }) {
     if (!data?.asset) throw new WsException('asset is required');
 
     const room = `prices:${data.asset.toUpperCase()}`;

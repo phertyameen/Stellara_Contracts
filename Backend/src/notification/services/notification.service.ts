@@ -72,17 +72,23 @@ export class NotificationService {
 
     // Email
     if (settings.emailEnabled && user.email) {
-      deliveryBatch.push(this.dispatch(notification.id, 'EMAIL', user.email, title, renderedMessage));
+      deliveryBatch.push(
+        this.dispatch(notification.id, 'EMAIL', user.email, title, renderedMessage),
+      );
     }
 
     // SMS
     if (settings.smsEnabled && user.phoneNumber) {
-      deliveryBatch.push(this.dispatch(notification.id, 'SMS', user.phoneNumber, title, renderedMessage));
+      deliveryBatch.push(
+        this.dispatch(notification.id, 'SMS', user.phoneNumber, title, renderedMessage),
+      );
     }
 
     // Web Push
     if (settings.pushEnabled && user.pushSubscription) {
-      deliveryBatch.push(this.dispatch(notification.id, 'PUSH', user.pushSubscription, title, renderedMessage, data));
+      deliveryBatch.push(
+        this.dispatch(notification.id, 'PUSH', user.pushSubscription, title, renderedMessage, data),
+      );
     }
 
     // WebSocket (Real-time) - Always try to send if enabled, but don't wait for it to track delivery

@@ -83,10 +83,7 @@ export class WebhooksService {
   }
 
   async publishEvent(dto: PublishWebhookEventDto) {
-    const matchingSubscriptions = await this.findMatchingSubscriptions(
-      dto.eventType,
-      dto.tenantId,
-    );
+    const matchingSubscriptions = await this.findMatchingSubscriptions(dto.eventType, dto.tenantId);
 
     const event = await (this.prisma as any).webhookEvent.create({
       data: {
@@ -154,9 +151,7 @@ export class WebhooksService {
         where: tenantId ? { tenantId } : {},
       }),
       (this.prisma as any).webhookDelivery.findMany({
-        where: tenantId
-          ? { subscription: { tenantId } }
-          : {},
+        where: tenantId ? { subscription: { tenantId } } : {},
         include: {
           subscription: {
             select: {
@@ -182,9 +177,7 @@ export class WebhooksService {
       return acc;
     }, {});
 
-    const failures = deliveries
-      .filter((delivery) => delivery.status === 'FAILED')
-      .slice(0, 20);
+    const failures = deliveries.filter((delivery) => delivery.status === 'FAILED').slice(0, 20);
 
     return {
       subscriptions: {

@@ -42,10 +42,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   /** Join a named chat room */
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('room:join')
-  async joinRoom(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { room: string },
-  ) {
+  async joinRoom(@ConnectedSocket() client: Socket, @MessageBody() data: { room: string }) {
     if (!data?.room) throw new WsException('room is required');
 
     const room = `room:${data.room}`;
@@ -65,10 +62,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   /** Leave a named chat room */
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('room:leave')
-  async leaveRoom(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { room: string },
-  ) {
+  async leaveRoom(@ConnectedSocket() client: Socket, @MessageBody() data: { room: string }) {
     if (!data?.room) throw new WsException('room is required');
 
     const room = `room:${data.room}`;

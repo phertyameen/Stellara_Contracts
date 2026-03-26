@@ -73,18 +73,17 @@ export class AuthService {
     }
 
     if (resolvedSessionId) {
-      await this.sessionService.terminateSession(
-        userId,
-        resolvedSessionId,
-        'logout',
-      );
+      await this.sessionService.terminateSession(userId, resolvedSessionId, 'logout');
     }
   }
 
   async refreshTokens(refreshToken: string, request: Request) {
     try {
       const decoded = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET', 'super_refresh_secret_key_for_development'),
+        secret: this.configService.get<string>(
+          'JWT_REFRESH_SECRET',
+          'super_refresh_secret_key_for_development',
+        ),
       });
 
       const sessionId = decoded.sid as string | undefined;
@@ -92,15 +91,9 @@ export class AuthService {
         throw new UnauthorizedException('Session information is missing');
       }
 
-      await this.sessionService.validateRefreshSession(
-        decoded.sub,
-        sessionId,
-        refreshToken,
-      );
+      await this.sessionService.validateRefreshSession(decoded.sub, sessionId, refreshToken);
 
-      const subscriptionTier = String(
-        decoded.subscriptionTier || 'free',
-      ).toLowerCase();
+      const subscriptionTier = String(decoded.subscriptionTier || 'free').toLowerCase();
       const tokens = await this.getTokens(
         decoded.sub,
         decoded.walletAddress,
@@ -147,7 +140,10 @@ export class AuthService {
         expiresIn: this.configService.get<any>('JWT_EXPIRATION', '15m'),
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET', 'super_refresh_secret_key_for_development'),
+        secret: this.configService.get<string>(
+          'JWT_REFRESH_SECRET',
+          'super_refresh_secret_key_for_development',
+        ),
         expiresIn: this.configService.get<any>('JWT_REFRESH_EXPIRATION', '7d'),
       }),
     ]);
@@ -159,15 +155,9 @@ export class AuthService {
   }
 
   private resolveSubscriptionTier(user: any): string {
-    const headerTier = String(
-      user.headers['x-subscription-tier'] || 'free',
-    ).toLowerCase();
+    const headerTier = String(user.headers['x-subscription-tier'] || 'free').toLowerCase();
 
-    if (
-      headerTier === 'free' ||
-      headerTier === 'pro' ||
-      headerTier === 'enterprise'
-    ) {
+    if (headerTier === 'free' || headerTier === 'pro' || headerTier === 'enterprise') {
       return headerTier;
     }
 
@@ -191,13 +181,8 @@ export class AuthService {
   }
 
   private async blacklistAccessToken(token: string, expiresAt: Date): Promise<void> {
-    const ttlSeconds = Math.max(
-      1,
-      Math.ceil((expiresAt.getTime() - Date.now()) / 1000),
-    );
-    await this.redisService
-      .getClient()
-      .set(this.blacklistKey(token), '1', 'EX', ttlSeconds);
+    const ttlSeconds = Math.max(1, Math.ceil((expiresAt.getTime() - Date.now()) / 1000));
+    await this.redisService.getClient().set(this.blacklistKey(token), '1', 'EX', ttlSeconds);
   }
 
   private blacklistKey(token: string): string {

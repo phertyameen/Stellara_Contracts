@@ -14,6 +14,7 @@ datasource db {
 
 model User {
   id              String   @id @default(cuid())
+  name            String?
   walletAddress   String   @unique @map("wallet_address")
   profileData     Json?    @map("profile_data")
   reputationScore Int      @default(0) @map("reputation_score")
@@ -48,6 +49,11 @@ model User {
   proposals            TransactionProposal[]
   tenantMembers       TenantMember[]
 
+  @@unique([tenantId, email])
+  @@unique([tenantId, walletAddress])
+  @@index([tenantId, id])
+  @@index([tenantId, email])
+  @@index([tenantId, walletAddress])
   @@map("users")
 }
 
@@ -172,20 +178,20 @@ model ProcessedEvent {
 }
 
 model ContractAbiRegistry {
-  id                  String               @id @default(uuid())
-  contractAddress     String               @unique @map("contract_address")
-  contractType        String               @map("contract_type")
-  displayName         String               @map("display_name")
-  network             String               @default("stellar")
-  description         String?
-  status              AbiRegistryStatus    @default(ACTIVE)
-  currentVersion      String?              @map("current_version")
-  metadata            Json?
-  createdBy           String?              @map("created_by")
-  updatedBy           String?              @map("updated_by")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  versions            ContractAbiVersion[]
+  id              String               @id @default(uuid())
+  contractAddress String               @unique @map("contract_address")
+  contractType    String               @map("contract_type")
+  displayName     String               @map("display_name")
+  network         String               @default("stellar")
+  description     String?
+  status          AbiRegistryStatus    @default(ACTIVE)
+  currentVersion  String?              @map("current_version")
+  metadata        Json?
+  createdBy       String?              @map("created_by")
+  updatedBy       String?              @map("updated_by")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  versions        ContractAbiVersion[]
 
   @@index([contractType, network])
   @@index([status, updatedAt])
@@ -193,20 +199,20 @@ model ContractAbiRegistry {
 }
 
 model ContractAbiVersion {
-  id                String              @id @default(uuid())
-  registryId        String              @map("registry_id")
-  registry          ContractAbiRegistry @relation(fields: [registryId], references: [id], onDelete: Cascade)
-  version           String
-  isCurrent         Boolean             @default(false) @map("is_current")
-  isDeprecated      Boolean             @default(false) @map("is_deprecated")
-  abiSchema         Json                @map("abi_schema")
-  contractSchema    Json                @map("contract_schema")
-  functionSchemas   Json                @map("function_schemas")
-  eventSchemas      Json                @map("event_schemas")
-  changelog         String?
-  compatibility     Json?
-  createdBy         String?             @map("created_by")
-  createdAt         DateTime            @default(now()) @map("created_at")
+  id              String              @id @default(uuid())
+  registryId      String              @map("registry_id")
+  registry        ContractAbiRegistry @relation(fields: [registryId], references: [id], onDelete: Cascade)
+  version         String
+  isCurrent       Boolean             @default(false) @map("is_current")
+  isDeprecated    Boolean             @default(false) @map("is_deprecated")
+  abiSchema       Json                @map("abi_schema")
+  contractSchema  Json                @map("contract_schema")
+  functionSchemas Json                @map("function_schemas")
+  eventSchemas    Json                @map("event_schemas")
+  changelog       String?
+  compatibility   Json?
+  createdBy       String?             @map("created_by")
+  createdAt       DateTime            @default(now()) @map("created_at")
 
   @@unique([registryId, version])
   @@index([registryId, isCurrent])
@@ -328,6 +334,7 @@ enum TenantStatus {
   ACTIVE
   SUSPENDED
   DELETED
+  ARCHIVED
 }
 
 enum TenantPlan {
@@ -348,37 +355,39 @@ model Tenant {
   slug      String       @unique
   status    TenantStatus @default(ACTIVE)
   plan      TenantPlan   @default(FREE)
+  metadata  Json?
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
 
-  settings  TenantSettings?
-  calls     Call[]
-  stakeLedgers StakeLedger[]
-  claims    Claim[]
-  pools     Pool[]
-  users     User[]
-  auditLogs TenantAuditLog[]
-  subscription Subscription?
-  tenantMembers TenantMember[]
+  settings             TenantSettings?
+  calls                Call[]
+  stakeLedgers         StakeLedger[]
+  claims               Claim[]
+  pools                Pool[]
+  users                User[]
+  auditLogs            TenantAuditLog[]
+  tenantMembers        TenantMember[]
+  subscription         Subscription?
   webhookSubscriptions WebhookSubscription[]
-  webhookEvents WebhookEvent[]
+  webhookEvents        WebhookEvent[]
 
+  @@index([status])
   @@map("tenants")
 }
 
 model TenantSettings {
-  id                   String   @id @default(cuid())
-  tenantId             String   @unique @map("tenant_id")
-  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  maxUsers             Int      @default(10) @map("max_users")
-  maxProjects          Int      @default(5) @map("max_projects")
-  apiCallsPerMonthLimit Int    @default(100000) @map("api_calls_per_month_limit")
-  storageGbLimit        Int    @default(100) @map("storage_gb_limit")
+  id                    String           @id @default(cuid())
+  tenantId              String           @unique @map("tenant_id")
+  tenant                Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  maxUsers              Int              @default(10) @map("max_users")
+  maxProjects           Int              @default(5) @map("max_projects")
+  apiCallsPerMonthLimit Int              @default(100000) @map("api_calls_per_month_limit")
+  storageGbLimit        Int              @default(100) @map("storage_gb_limit")
   apiOveragePolicy      ApiOveragePolicy @default(HARD_STOP) @map("api_overage_policy")
-  allowPublicProjects  Boolean  @default(true) @map("allow_public_projects")
-  notificationsEnabled Boolean  @default(true) @map("notifications_enabled")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  allowPublicProjects   Boolean          @default(true) @map("allow_public_projects")
+  notificationsEnabled  Boolean          @default(true) @map("notifications_enabled")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
 
   @@map("tenant_settings")
 }
@@ -680,23 +689,23 @@ model ConfigAuditLog {
 }
 
 model WebhookSubscription {
-  id                String                    @id @default(uuid())
-  tenantId          String?                   @map("tenant_id")
-  name              String
-  description       String?
-  url               String
-  secret            String
-  status            WebhookSubscriptionStatus @default(ACTIVE)
-  eventFilters      Json                      @map("event_filters")
-  payloadFields     Json?                     @map("payload_fields")
-  customHeaders     Json?                     @map("custom_headers")
-  createdBy         String?                   @map("created_by")
-  lastTriggeredAt   DateTime?                 @map("last_triggered_at")
-  createdAt         DateTime                  @default(now()) @map("created_at")
-  updatedAt         DateTime                  @updatedAt @map("updated_at")
+  id              String                    @id @default(uuid())
+  tenantId        String?                   @map("tenant_id")
+  name            String
+  description     String?
+  url             String
+  secret          String
+  status          WebhookSubscriptionStatus @default(ACTIVE)
+  eventFilters    Json                      @map("event_filters")
+  payloadFields   Json?                     @map("payload_fields")
+  customHeaders   Json?                     @map("custom_headers")
+  createdBy       String?                   @map("created_by")
+  lastTriggeredAt DateTime?                 @map("last_triggered_at")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
 
-  tenant            Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  deliveries        WebhookDelivery[]
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  deliveries WebhookDelivery[]
 
   @@index([tenantId, status])
   @@index([status])
@@ -704,17 +713,17 @@ model WebhookSubscription {
 }
 
 model WebhookEvent {
-  id          String            @id @default(uuid())
-  tenantId    String?           @map("tenant_id")
-  eventType   String            @map("event_type")
-  source      String            @default("platform")
-  payload     Json
-  metadata    Json?
-  occurredAt  DateTime          @default(now()) @map("occurred_at")
-  createdAt   DateTime          @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  tenantId   String?  @map("tenant_id")
+  eventType  String   @map("event_type")
+  source     String   @default("platform")
+  payload    Json
+  metadata   Json?
+  occurredAt DateTime @default(now()) @map("occurred_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  tenant      Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  deliveries  WebhookDelivery[]
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  deliveries WebhookDelivery[]
 
   @@index([tenantId, eventType])
   @@index([eventType, occurredAt])
@@ -722,24 +731,24 @@ model WebhookEvent {
 }
 
 model WebhookDelivery {
-  id                String                @id @default(uuid())
-  subscriptionId    String                @map("subscription_id")
-  eventId           String                @map("event_id")
-  status            WebhookDeliveryStatus @default(PENDING)
-  attempts          Int                   @default(0)
-  maxAttempts       Int                   @default(10) @map("max_attempts")
-  nextAttemptAt     DateTime              @default(now()) @map("next_attempt_at")
-  lastAttemptAt     DateTime?             @map("last_attempt_at")
-  deliveredAt       DateTime?             @map("delivered_at")
-  lastResponseCode  Int?                  @map("last_response_code")
-  lastResponseBody  String?               @map("last_response_body")
-  errorMessage      String?               @map("error_message")
-  signature         String?               @map("signature")
-  createdAt         DateTime              @default(now()) @map("created_at")
-  updatedAt         DateTime              @updatedAt @map("updated_at")
+  id               String                @id @default(uuid())
+  subscriptionId   String                @map("subscription_id")
+  eventId          String                @map("event_id")
+  status           WebhookDeliveryStatus @default(PENDING)
+  attempts         Int                   @default(0)
+  maxAttempts      Int                   @default(10) @map("max_attempts")
+  nextAttemptAt    DateTime              @default(now()) @map("next_attempt_at")
+  lastAttemptAt    DateTime?             @map("last_attempt_at")
+  deliveredAt      DateTime?             @map("delivered_at")
+  lastResponseCode Int?                  @map("last_response_code")
+  lastResponseBody String?               @map("last_response_body")
+  errorMessage     String?               @map("error_message")
+  signature        String?               @map("signature")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
 
-  subscription      WebhookSubscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  event             WebhookEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  event        WebhookEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([status, nextAttemptAt])
   @@index([subscriptionId, status])
@@ -751,6 +760,75 @@ enum ConfigScope {
   GLOBAL
   TENANT
   USER
+}
+
+model AuditLog {
+  id            String      @id @default(uuid())
+  correlationId String?     @map("correlation_id")
+  tenantId      String?     @map("tenant_id")
+  userId        String?     @map("user_id")
+  action        AuditAction
+  entityType    String      @map("entity_type")
+  entityId      String?     @map("entity_id")
+  method        String? // HTTP method (GET, POST, PUT, DELETE)
+  path          String? // Request path
+  statusCode    Int?        @map("status_code")
+  ipAddress     String?     @map("ip_address")
+  userAgent     String?     @map("user_agent")
+  requestBody   Json?       @map("request_body")
+  responseBody  Json?       @map("response_body")
+  previousState Json?       @map("previous_state")
+  newState      Json?       @map("new_state")
+  changedFields String[]    @map("changed_fields")
+  metadata      Json?
+  duration      Int? // Duration in milliseconds
+  errorMessage  String?     @map("error_message")
+  checksum      String? // SHA-256 hash for tamper detection
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([correlationId])
+  @@index([createdAt])
+  @@index([statusCode])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  SYSTEM_EVENT
+  API_CALL
+  ERROR
+  ACCESS_DENIED
+  DATA_CHANGE
+}
+
+model AuditRetentionPolicy {
+  id              String    @id @default(uuid())
+  name            String    @unique
+  tenantId        String?   @map("tenant_id")
+  retentionDays   Int       @default(90) @map("retention_days")
+  entityTypes     String[]  @map("entity_types")
+  actions         String[] // AuditAction values to apply policy to
+  archiveEnabled  Boolean   @default(false) @map("archive_enabled")
+  archiveLocation String?   @map("archive_location")
+  isActive        Boolean   @default(true) @map("is_active")
+  lastExecutedAt  DateTime? @map("last_executed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("audit_retention_policies")
 }
 
 // ─── Payment System Models ───────────────────────────────────────────────────
@@ -788,17 +866,17 @@ enum PaymentEventType {
 }
 
 model SubscriptionPlan {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  stripePriceId String @unique @map("stripe_price_id")
-  amount      Int      // Amount in cents
-  currency    String   @default("usd")
-  interval    String   @default("month") // month, year
-  features    Json?    // Feature flags and limits
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  name          String   @unique
+  description   String?
+  stripePriceId String   @unique @map("stripe_price_id")
+  amount        Int // Amount in cents
+  currency      String   @default("usd")
+  interval      String   @default("month") // month, year
+  features      Json? // Feature flags and limits
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   subscriptions Subscription[]
 
@@ -823,9 +901,9 @@ model Subscription {
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
-  invoices       Invoice[]
-  usageRecords   UsageRecord[]
-  paymentEvents  PaymentEvent[]
+  invoices        Invoice[]
+  usageRecords    UsageRecord[]
+  paymentEvents   PaymentEvent[]
   dunningAttempts DunningAttempt[]
 
   @@index([tenantId])
@@ -835,15 +913,15 @@ model Subscription {
 }
 
 model UsageRecord {
-  id             String       @id @default(uuid())
-  subscriptionId String       @map("subscription_id")
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  tenantId       String       @map("tenant_id")
-  metricName     String       @map("metric_name") // api_calls, storage_gb, compute_hours
-  quantity       Int
-  timestamp      DateTime     @default(now())
-  stripeUsageRecordId String?   @map("stripe_usage_record_id")
-  createdAt      DateTime     @default(now()) @map("created_at")
+  id                  String       @id @default(uuid())
+  subscriptionId      String       @map("subscription_id")
+  subscription        Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  tenantId            String       @map("tenant_id")
+  metricName          String       @map("metric_name") // api_calls, storage_gb, compute_hours
+  quantity            Int
+  timestamp           DateTime     @default(now())
+  stripeUsageRecordId String?      @map("stripe_usage_record_id")
+  createdAt           DateTime     @default(now()) @map("created_at")
 
   @@index([subscriptionId])
   @@index([tenantId])
@@ -853,22 +931,22 @@ model UsageRecord {
 }
 
 model Invoice {
-  id             String        @id @default(uuid())
-  subscriptionId String        @map("subscription_id")
-  subscription   Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  tenantId       String        @map("tenant_id")
-  stripeInvoiceId String       @unique @map("stripe_invoice_id")
-  status         InvoiceStatus @default(DRAFT)
-  amountDue      Int           @map("amount_due") // in cents
-  amountPaid     Int           @default(0) @map("amount_paid")
-  currency       String        @default("usd")
-  pdfUrl         String?       @map("pdf_url")
-  hostedInvoiceUrl String?     @map("hosted_invoice_url")
-  invoiceNumber  String?       @map("invoice_number")
-  dueDate        DateTime?     @map("due_date")
-  paidAt         DateTime?     @map("paid_at")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  id               String        @id @default(uuid())
+  subscriptionId   String        @map("subscription_id")
+  subscription     Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  tenantId         String        @map("tenant_id")
+  stripeInvoiceId  String        @unique @map("stripe_invoice_id")
+  status           InvoiceStatus @default(DRAFT)
+  amountDue        Int           @map("amount_due") // in cents
+  amountPaid       Int           @default(0) @map("amount_paid")
+  currency         String        @default("usd")
+  pdfUrl           String?       @map("pdf_url")
+  hostedInvoiceUrl String?       @map("hosted_invoice_url")
+  invoiceNumber    String?       @map("invoice_number")
+  dueDate          DateTime?     @map("due_date")
+  paidAt           DateTime?     @map("paid_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
   @@index([subscriptionId])
   @@index([tenantId])
@@ -878,31 +956,31 @@ model Invoice {
 }
 
 model PaymentMethod {
-  id             String   @id @default(uuid())
-  tenantId       String   @unique @map("tenant_id")
-  stripePaymentMethodId String @unique @map("stripe_payment_method_id")
-  type           String   // card, bank_transfer, etc.
-  brand          String?  // visa, mastercard, etc.
-  last4          String?
-  expMonth       Int?     @map("exp_month")
-  expYear        Int?     @map("exp_year")
-  isDefault      Boolean  @default(true) @map("is_default")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(uuid())
+  tenantId              String   @unique @map("tenant_id")
+  stripePaymentMethodId String   @unique @map("stripe_payment_method_id")
+  type                  String // card, bank_transfer, etc.
+  brand                 String? // visa, mastercard, etc.
+  last4                 String?
+  expMonth              Int?     @map("exp_month")
+  expYear               Int?     @map("exp_year")
+  isDefault             Boolean  @default(true) @map("is_default")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@map("payment_methods")
 }
 
 model PaymentEvent {
-  id             String          @id @default(uuid())
-  subscriptionId String?         @map("subscription_id")
-  subscription   Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  tenantId       String          @map("tenant_id")
+  id             String           @id @default(uuid())
+  subscriptionId String?          @map("subscription_id")
+  subscription   Subscription?    @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  tenantId       String           @map("tenant_id")
   eventType      PaymentEventType @map("event_type")
-  stripeEventId  String?         @map("stripe_event_id")
+  stripeEventId  String?          @map("stripe_event_id")
   metadata       Json?
-  createdAt      DateTime        @default(now()) @map("created_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
 
   @@index([subscriptionId])
   @@index([tenantId])
@@ -918,7 +996,7 @@ model DunningAttempt {
   tenantId       String       @map("tenant_id")
   invoiceId      String       @map("invoice_id")
   attemptNumber  Int          @map("attempt_number")
-  status         String       // pending, succeeded, failed
+  status         String // pending, succeeded, failed
   nextRetryAt    DateTime?    @map("next_retry_at")
   emailSentAt    DateTime?    @map("email_sent_at")
   resolvedAt     DateTime?    @map("resolved_at")

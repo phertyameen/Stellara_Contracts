@@ -68,9 +68,7 @@ export class ConnectionStateService {
 
   getSocketIds(userId: string, namespace?: string): string[] {
     const sockets = this.userSockets.get(userId) || [];
-    return sockets
-      .filter((s) => !namespace || s.namespace === namespace)
-      .map((s) => s.socketId);
+    return sockets.filter((s) => !namespace || s.namespace === namespace).map((s) => s.socketId);
   }
 
   getUserId(socketId: string): string | undefined {

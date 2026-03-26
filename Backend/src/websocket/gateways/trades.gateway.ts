@@ -42,10 +42,7 @@ export class TradesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /** Subscribe to trade updates for a specific asset pair */
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('subscribe:trades')
-  async subscribeTrades(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { asset: string },
-  ) {
+  async subscribeTrades(@ConnectedSocket() client: Socket, @MessageBody() data: { asset: string }) {
     if (!data?.asset) throw new WsException('asset is required');
 
     const room = `trades:${data.asset.toUpperCase()}`;

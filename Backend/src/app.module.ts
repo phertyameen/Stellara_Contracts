@@ -1,31 +1,34 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
+import { AbiRegistryModule } from './abi-registry/abi-registry.module';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { validateEnv } from './config/env.validation';
-import { DatabaseModule } from './database.module';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
-import { WebsocketModule } from './websocket/websocket.module';
-import { PaymentModule } from './payment/payment.module';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
-import { DocsController } from './docs/docs.controller';
-import { LoggingModule } from './logging/logging.module';
-import { RedisModule } from './redis/redis.module';
-import { RateLimitModule } from './rate-limiting/rate-limit.module';
-import { SessionModule } from './sessions/session.module';
-import { LifecycleModule } from './lifecycle/lifecycle.module';
-import { IndexAnalysisModule } from './index-analysis/index-analysis.module';
-import { ErrorHandlingModule } from './common/error-handling.module';
 import { BackupModule } from './backup/backup.module';
-import { QuotaModule } from './quota/quota.module';
-import { AdminModule } from './admin/admin.module';
-import { TenantModule } from './tenant/tenant.module';
-import { UserController } from './user.controller';
+import { ConfigModule } from '@nestjs/config';
+import { DatabaseModule } from './database.module';
+import { DocsController } from './docs/docs.controller';
+import { ErrorHandlingModule } from './common/error-handling.module';
+import { IndexAnalysisModule } from './index-analysis/index-analysis.module';
+import { LifecycleModule } from './lifecycle/lifecycle.module';
+import { LoggingModule } from './logging/logging.module';
+import { Module } from '@nestjs/common';
+import { PaymentModule } from './payment/payment.module';
 import { PrismaModule } from './prisma.module';
+import { QuotaModule } from './quota/quota.module';
 import { RabbitmqModule } from './messaging/rabbitmq/rabbitmq.module';
+import { RateLimitModule } from './rate-limiting/rate-limit.module';
+import { RedisModule } from './redis/redis.module';
+import { ReputationModule } from './reputation/reputation.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { SessionModule } from './sessions/session.module';
+import { TenantModule } from './tenant/tenant.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import { UserController } from './user.controller';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { WebsocketModule } from './websocket/websocket.module';
+import { validateEnv } from './config/env.validation';
 import { AbiRegistryModule } from './abi-registry/abi-registry.module';
 import { MultisigModule } from './multisig/multisig.module';
 
@@ -43,6 +46,24 @@ import { MultisigModule } from './multisig/multisig.module';
       enablePerformanceTracing: true,
       defaultContext: 'Application',
     }),
+    // Global rate limiting with Redis storage
+    ThrottlerModule.forRootAsync({
+      useFactory: () =>
+        ({
+          ttl: 60, // time window in seconds
+          limit: 100, // default requests per window
+          storage: new ThrottlerStorageRedisService({
+            host: process.env.REDIS_HOST || 'localhost',
+            port: parseInt(process.env.REDIS_PORT || '6379', 10),
+            password: process.env.REDIS_PASSWORD || undefined,
+          }),
+        }) as never,
+    }),
+    // Error handling with global filters
+    ErrorHandlingModule,
+    // Comprehensive audit logging for compliance
+    AuditModule,
+    ReputationModule,
     RedisModule,
     DatabaseModule,
     PrismaModule,
@@ -66,4 +87,4 @@ import { MultisigModule } from './multisig/multisig.module';
   controllers: [AppController, UserController, DocsController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
