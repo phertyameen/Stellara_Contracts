@@ -14,10 +14,10 @@
  * WARNING: This is destructive. Always back up your database first.
  */
 
+import { createPrismaClient } from '../client';
 import { execSync } from 'child_process';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 interface MigrationRecord {
   id: string;
@@ -26,7 +26,7 @@ interface MigrationRecord {
   applied_steps_count: number;
 }
 
-async function getAppliedMigrations(): Promise<MigrationRecord[]> {
+async function getAppliedMigrations (): Promise<MigrationRecord[]> {
   const result = await prisma.$queryRaw<MigrationRecord[]>`
     SELECT id, migration_name, finished_at, applied_steps_count
     FROM _prisma_migrations
@@ -36,7 +36,7 @@ async function getAppliedMigrations(): Promise<MigrationRecord[]> {
   return result;
 }
 
-async function rollbackSteps(steps: number) {
+async function rollbackSteps (steps: number) {
   const migrations = await getAppliedMigrations();
 
   if (migrations.length === 0) {
@@ -65,7 +65,7 @@ async function rollbackSteps(steps: number) {
   console.log('   Run: npm run db:migrate:deploy to re-apply from current state\n');
 }
 
-async function rollbackToTarget(targetMigration: string) {
+async function rollbackToTarget (targetMigration: string) {
   const migrations = await getAppliedMigrations();
   const targetIndex = migrations.findIndex((m) =>
     m.migration_name.includes(targetMigration),
@@ -79,7 +79,7 @@ async function rollbackToTarget(targetMigration: string) {
   await rollbackSteps(targetIndex);
 }
 
-async function listMigrations() {
+async function listMigrations () {
   const migrations = await getAppliedMigrations();
   console.log('\n📋 Applied migrations (newest first):');
   migrations.forEach((m, i) => {
@@ -88,7 +88,7 @@ async function listMigrations() {
   console.log('');
 }
 
-async function main() {
+async function main () {
   const args = process.argv.slice(2);
 
   if (args.includes('--list')) {
