@@ -60,6 +60,7 @@ import { TransactionQueueModule } from './transaction-queue/transaction-queue.mo
 import { SupplyChainFinanceModule } from './supply-chain-finance/supply-chain-finance.module';
 import { LiquidityAggregationModule } from './liquidity-aggregation/liquidity-aggregation.module';
 import { CrossChainSwapModule } from './cross-chain-swap/cross-chain-swap.module';
+import { CrossChainRouterModule } from './cross-chain-router/cross-chain-router.module';
 import { PredictiveSettlementModule } from './predictive-settlement/predictive-settlement.module';
 import { HFTModule } from './hft/hft.module';
 import { QuantumCryptoModule } from './crypto/quantum/quantum-crypto.module';
@@ -153,6 +154,7 @@ import { AIAuditorModule } from './ai-auditor/ai-auditor.module';
     HFTModule,
     QuantumCryptoModule,
     AIAuditorModule,
+    CrossChainRouterModule,
 
   ],
   controllers: [AppController, UserController, DocsController],
