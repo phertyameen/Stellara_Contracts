@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
@@ -12,6 +12,10 @@ import { IndexerModule } from './indexer/indexer.module';
 import { NotificationModule } from './notification/notification.module';
 import { StorageModule } from './storage/storage.module';
 import { InsuranceModule } from '../insurance/insurance.module';
+import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { AppLogger } from './common/logger/app.logger';
+import { AppCacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -39,8 +43,15 @@ import { InsuranceModule } from '../insurance/insurance.module';
     NotificationModule,
     StorageModule,
     InsuranceModule,
+    AppCacheModule,
   ],
   controllers: [AppController, UserController],
-  providers: [AppService],
+  providers: [AppService, AppLogger],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(CorrelationIdMiddleware, LoggingMiddleware)
+      .forRoutes('*');
+  }
+}

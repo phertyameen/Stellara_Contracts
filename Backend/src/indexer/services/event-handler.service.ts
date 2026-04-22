@@ -188,26 +188,26 @@ class ContributionMadeHandler implements IEventHandler {
       return;
     }
 
-    // Create contribution
-    await this.prisma.contribution.upsert({
-      where: { transactionHash: event.transactionHash },
-      update: {},
-      create: {
-        transactionHash: event.transactionHash,
-        investorId: user.id,
-        projectId: project.id,
-        amount: BigInt(data.amount),
-        timestamp: event.ledgerClosedAt,
-      },
-    });
-
-    // Update project current funds
-    await this.prisma.project.update({
-      where: { id: project.id },
-      data: {
-        currentFunds: BigInt(data.totalRaised),
-      },
-    });
+    // Create contribution and update project funds atomically
+    await this.prisma.$transaction([
+      this.prisma.contribution.upsert({
+        where: { transactionHash: event.transactionHash },
+        update: {},
+        create: {
+          transactionHash: event.transactionHash,
+          investorId: user.id,
+          projectId: project.id,
+          amount: BigInt(data.amount),
+          timestamp: event.ledgerClosedAt,
+        },
+      }),
+      this.prisma.project.update({
+        where: { id: project.id },
+        data: {
+          currentFunds: BigInt(data.totalRaised),
+        },
+      }),
+    ]);
 
     // Dispatch notification
     try {
