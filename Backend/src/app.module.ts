@@ -1,26 +1,43 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
-import { UserController } from './user.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env.validation';
+
+// Core & Infrastructure Modules
 import { ReputationModule } from './reputation/reputation.module';
 import { DatabaseModule } from './database.module';
 import { HealthModule } from './health/health.module';
 import { IndexerModule } from './indexer/indexer.module';
 import { NotificationModule } from './notification/notification.module';
 import { StorageModule } from './storage/storage.module';
+import { AppCacheModule } from './cache/cache.module';
+import { PrismaModule } from './prisma.module';
+
+// Feature Modules
 import { InsuranceModule } from '../insurance/insurance.module';
+import { RegenerativeFinanceModule } from './regenerative-finance/regenerative-finance.module';
+import { CompetitionModule } from './competition/competition.module';
+import { SupportModule } from './support/support.module';
+import { MultisigModule } from './multisig/multisig.module';
+import { NonceModule } from './nonce/nonce.module';
+import { V1Module } from './modules/v1/v1.module';
+import { V2Module } from './modules/v2/v2.module';
+
+// Middleware & Common
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { ApiVersionMiddleware } from './common/middleware/api-version.middleware';
+import { TimeoutMiddleware } from './common/middleware/timeout.middleware';
+import { SanitizationMiddleware } from './common/middleware/sanitization.middleware';
 import { AppLogger } from './common/logger/app.logger';
-import { AppCacheModule } from './cache/cache.module';
-import { EsopModule } from './esop/esop.module';
-import { SecurityModule } from './security/security.module';
+
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -32,12 +49,13 @@ import { SecurityModule } from './security/security.module';
       useFactory: (config: ConfigService) => ({
         throttlers: [
           {
-            ttl: 60000, // 1 minute
-            limit: 100, // 100 requests per minute per IP
+            ttl: 60000,
+            limit: 100,
           },
         ],
       }),
     }),
+    PrismaModule,
     ReputationModule,
     DatabaseModule,
     HealthModule,
@@ -45,17 +63,26 @@ import { SecurityModule } from './security/security.module';
     NotificationModule,
     StorageModule,
     InsuranceModule,
+    RegenerativeFinanceModule,
+    CompetitionModule,
+    SupportModule,
+    MultisigModule,
     AppCacheModule,
-    EsopModule,
-    SecurityModule,
+
   ],
-  controllers: [AppController, UserController],
-  providers: [AppService, AppLogger],
+  controllers: [AppController],
+  providers: [AppService, AppLogger, ApiVersionMiddleware, TimeoutMiddleware],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(CorrelationIdMiddleware, LoggingMiddleware)
+      .apply(
+        CorrelationIdMiddleware,
+        LoggingMiddleware,
+        ApiVersionMiddleware,
+        TimeoutMiddleware,
+        SanitizationMiddleware,
+      )
       .forRoutes('*');
   }
 }
