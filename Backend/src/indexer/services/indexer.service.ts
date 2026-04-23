@@ -79,6 +79,7 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     // Initialize RPC client with primary endpoint
     this.rpc = new SorobanRpc.Server(this.rpcEndpoints[0], {
       allowHttp: this.rpcEndpoints[0].startsWith('http://'),
+      timeout: 10000, // 10 seconds timeout for RPC calls
     });
 
     // Initialize circuit breaker for RPC calls
