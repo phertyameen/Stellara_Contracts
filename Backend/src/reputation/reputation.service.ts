@@ -4,12 +4,16 @@ import { PrismaService } from '../prisma.service';
 import { calculateTrustScore } from './calculators/trust-score.calculator';
 import { calculateReputationScore } from './calculators/score.calculator';
 import { ActivityType, DECAY_EXEMPTION_THRESHOLD, DECAY_SCHEDULE } from './reputation.constants';
+import { ReputationNotificationService } from './services/reputation-notification.service';
 
 @Injectable()
 export class ReputationService {
   private readonly logger = new Logger(ReputationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: ReputationNotificationService,
+  ) { }
 
   /**
    * Daily task to apply time-decay to all users.
@@ -21,13 +25,13 @@ export class ReputationService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleDailyRecalculation() {
     this.logger.log('Starting daily reputation recalculation with decay...');
-    const users = await this.prisma.user.findMany({ 
+    const users = await this.prisma.user.findMany({
       select: { id: true, reputationScore: true },
     });
-    
+
     let processedCount = 0;
     let exemptedCount = 0;
-    
+
     for (const user of users) {
       try {
         // Check for decay exemption
@@ -98,7 +102,7 @@ export class ReputationService {
     actorId?: string,
   ) {
     this.logger.log(`Recording ${activityType} for user ${subjectId} with value ${value}`);
-    
+
     const activity = await this.prisma.reputationActivity.create({
       data: {
         subjectId,
@@ -112,7 +116,7 @@ export class ReputationService {
 
     // Recalculate composite score after new activity
     await this.updateReputationScore(subjectId);
-    
+
     return activity;
   }
 
@@ -124,12 +128,18 @@ export class ReputationService {
       where: { subjectId: userId },
     });
 
+    // Get previous score for notification tracking
+    const previousScore = await this.prisma.reputationScore.findUnique({
+      where: { subjectId: userId },
+    });
+
+    const previousCompositeScore = previousScore?.compositeScore ?? 0;
     const breakdown = calculateReputationScore(activities);
 
     // Update user's aggregate score and level in the main users table
     await this.prisma.user.update({
       where: { id: userId },
-      data: { 
+      data: {
         reputationScore: Math.round(breakdown.compositeScore),
         reputationLevel: breakdown.level,
       },
@@ -164,6 +174,14 @@ export class ReputationService {
         lowConfidence: breakdown.lowConfidence,
       },
     });
+
+    // Trigger notifications for significant changes
+    await this.notificationService.monitorReputationChange(
+      userId,
+      Math.round(previousCompositeScore),
+      Math.round(breakdown.compositeScore),
+      'SCORE_RECALCULATION',
+    );
 
     return breakdown;
   }

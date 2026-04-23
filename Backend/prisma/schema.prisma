@@ -28,6 +28,9 @@ model User {
   createdProjects      Project[]            @relation("ProjectCreator")
   contributions        Contribution[]
   reputationHistory    ReputationHistory[]
+  notificationSettings NotificationSetting?
+  notifications        Notification[]
+  weeklySummaries      WeeklyReputationSummary[]
 
 
   @@map("users")
@@ -171,16 +174,20 @@ model IndexerLog {
 }
 
 model NotificationSetting {
-  id                  String   @id @default(cuid())
-  userId              String   @unique @map("user_id")
-  user                User     @relation(fields: [userId], references: [id])
-  emailEnabled        Boolean  @default(true) @map("email_enabled")
-  pushEnabled         Boolean  @default(false) @map("push_enabled")
-  notifyContributions Boolean  @default(true) @map("notify_contributions")
-  notifyMilestones    Boolean  @default(true) @map("notify_milestones")
-  notifyDeadlines     Boolean  @default(true) @map("notify_deadlines")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                        String   @id @default(cuid())
+  userId                    String   @unique @map("user_id")
+  user                      User     @relation(fields: [userId], references: [id])
+  emailEnabled              Boolean  @default(true) @map("email_enabled")
+  pushEnabled               Boolean  @default(false) @map("push_enabled")
+  notifyContributions       Boolean  @default(true) @map("notify_contributions")
+  notifyMilestones          Boolean  @default(true) @map("notify_milestones")
+  notifyDeadlines           Boolean  @default(true) @map("notify_deadlines")
+  notifyReputationChanges   Boolean  @default(true) @map("notify_reputation_changes")
+  notifyLevelUps            Boolean  @default(true) @map("notify_level_ups")
+  notifyWeeklySummary       Boolean  @default(true) @map("notify_weekly_summary")
+  reputationChangeThreshold Int      @default(50) @map("reputation_change_threshold")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
 
   @@map("notification_settings")
 }
@@ -242,6 +249,10 @@ enum NotificationType {
   MILESTONE
   DEADLINE
   SYSTEM
+  REPUTATION_CHANGE
+  LEVEL_UP
+  WEEKLY_REPUTATION_SUMMARY
+  REPUTATION_MILESTONE
 }
 
 enum EmailStatus {
@@ -342,6 +353,39 @@ model ReinsuranceContract {
   @@map("reinsurance_contracts")
 }
 
+model ReputationTip {
+  id          String   @id @default(cuid())
+  category    String   // e.g., "transactions", "community", "projects"
+  title       String
+  description String
+  impact      String   // "HIGH", "MEDIUM", "LOW"
+  difficulty  String   // "EASY", "MEDIUM", "HARD"
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("reputation_tips")
+}
+
+model WeeklyReputationSummary {
+  id                    String   @id @default(cuid())
+  userId                String   @map("user_id")
+  user                  User     @relation(fields: [userId], references: [id])
+  weekStartDate         DateTime @map("week_start_date")
+  previousScore         Int      @map("previous_score")
+  currentScore          Int      @map("current_score")
+  scoreChange           Int      @map("score_change")
+  level                 String
+  activitiesCount       Int      @map("activities_count")
+  topActivityType       String?  @map("top_activity_type")
+  improvementTips       Json?    @map("improvement_tips")
+  emailSent             Boolean  @default(false) @map("email_sent")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, weekStartDate])
+  @@map("weekly_reputation_summaries")
+}
 
   COMPLETED
   FAILED

@@ -63,12 +63,19 @@ export class NotificationService {
       notifyContributions: true,
       notifyMilestones: true,
       notifyDeadlines: true,
+      notifyReputationChanges: true,
+      notifyLevelUps: true,
+      notifyWeeklySummary: true,
+      reputationChangeThreshold: 50,
     };
 
     // Check specific preferences
     if (type === 'CONTRIBUTION' && !settings.notifyContributions) return;
     if (type === 'MILESTONE' && !settings.notifyMilestones) return;
     if (type === 'DEADLINE' && !settings.notifyDeadlines) return;
+    if (type === 'REPUTATION_CHANGE' && !settings.notifyReputationChanges) return;
+    if (type === 'LEVEL_UP' && !settings.notifyLevelUps) return;
+    if (type === 'WEEKLY_REPUTATION_SUMMARY' && !settings.notifyWeeklySummary) return;
 
     const isDuplicate = await this.isDuplicateNotification(userId, type, title, message);
     if (isDuplicate) {
