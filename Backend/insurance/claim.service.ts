@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../src/prisma.service';
 import { ClaimStatus } from '@prisma/client';
 
@@ -6,26 +6,54 @@ import { ClaimStatus } from '@prisma/client';
 export class ClaimService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assessClaim(claimId: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new Error('Claim not found');
+  async submitClaim(policyId: string, claimAmount: number) {
+    const policy = await this.prisma.insurancePolicy.findUnique({
+      where: { id: policyId },
+    });
 
-    // Simplified automated assessment
-    return this.prisma.claim.update({
-      where: { id: claimId },
+    if (!policy) {
+      throw new NotFoundException(`Policy ${policyId} not found`);
+    }
+
+    return this.prisma.claim.create({
       data: {
-        status: 'APPROVED',
-        payoutAmount: claim.amount,
+        policyId,
+        poolId: policy.poolId,
+        claimAmount: claimAmount,
+        status: 'PENDING',
       },
     });
   }
 
-  async payClaim(claimId: string) {
-    return this.prisma.claim.update({
+  async assessClaim(claimId: string, status: ClaimStatus, payoutAmount?: number) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+      include: { policy: true },
+    });
+
+    if (!claim) {
+      throw new NotFoundException(`Claim ${claimId} not found`);
+    }
+
+    const updatedClaim = await this.prisma.claim.update({
       where: { id: claimId },
       data: {
-        status: 'APPROVED', // Assuming PAID is mapped to something or just keeping status logic
+        status,
+        payoutAmount: payoutAmount || (status === 'APPROVED' ? claim.claimAmount : 0),
       },
+    });
+
+    if (status === 'APPROVED' && claim.poolId) {
+      // Logic to move capital from locked to paid could go here
+    }
+
+    return updatedClaim;
+  }
+
+  async getClaimsByPolicy(policyId: string) {
+    return this.prisma.claim.findMany({
+      where: { policyId },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

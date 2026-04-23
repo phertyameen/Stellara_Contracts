@@ -11,8 +11,13 @@ export class ReinsuranceService {
         poolId,
         coverageLimit,
         premiumRate,
-        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // Default 1 year
       },
+    });
+  }
+
+  async getContractsByPool(poolId: string) {
+    return this.prisma.reinsuranceContract.findMany({
+      where: { poolId },
     });
   }
 }

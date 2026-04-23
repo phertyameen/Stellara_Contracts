@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../src/prisma.service';
 import { PricingService } from './pricing.service';
 import { PoolService } from './pool.service';
-import { PrismaService } from '../src/prisma.service';
 import { RiskType } from '@prisma/client';
 import { OracleService } from './oracle.service';
 
 @Injectable()
 export class InsuranceService {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly pricing: PricingService,
     private readonly pools: PoolService,
-    private readonly prisma: PrismaService,
     private readonly oracle: OracleService,
   ) {}
 
@@ -22,9 +22,10 @@ export class InsuranceService {
       data: {
         userId,
         poolId,
-        riskType: riskType.toUpperCase() as any, // Align with Prisma enum
-        coverageAmount,
-        premium,
+        riskType: riskType,
+        coverageAmount: coverageAmount,
+        premium: premium,
+        status: 'ACTIVE',
       },
     });
   }
@@ -42,9 +43,8 @@ export class InsuranceService {
         return this.prisma.claim.create({
           data: {
             policyId,
-            tenantId: 'system', // Default tenant or from policy
-            userAddress: 'system', // or from user wallet
-            amount: policy.coverageAmount,
+            poolId: policy.poolId,
+            claimAmount: policy.coverageAmount,
             status: 'APPROVED', // Automated approval for parametric
           },
         });
@@ -52,5 +52,20 @@ export class InsuranceService {
     }
     
     return null;
+  }
+
+  async getPoliciesByUser(userId: string) {
+    return this.prisma.insurancePolicy.findMany({
+      where: { userId },
+      include: { pool: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getPolicyById(policyId: string) {
+    return this.prisma.insurancePolicy.findUnique({
+      where: { id: policyId },
+      include: { pool: true, claims: true },
+    });
   }
 }

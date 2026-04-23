@@ -6,6 +6,7 @@ version = 4
 name = "academy-rewards"
 version = "0.0.0"
 dependencies = [
+ "shared",
  "soroban-sdk",
 ]
 
@@ -13,6 +14,7 @@ dependencies = [
 name = "academy-vesting"
 version = "0.1.0"
 dependencies = [
+ "shared",
  "soroban-sdk",
 ]
 
@@ -1243,6 +1245,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellara-synthetic-assets"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1263,6 +1272,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tcr"
+version = "0.1.0"
+dependencies = [
+ "shared",
+ "soroban-sdk",
 ]
 
 [[package]]

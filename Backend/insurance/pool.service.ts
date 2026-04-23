@@ -1,27 +1,70 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../src/prisma.service';
 
 @Injectable()
 export class PoolService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async addCapital(poolId: string, amount: number) {
-    return this.prisma.pool.update({
-      where: { id: poolId },
+  async createPool(name: string, initialCapital: number = 0) {
+    const pool = await this.prisma.insurancePool.create({
       data: {
-        totalCapacity: { increment: amount },
-        availableLiquidity: { increment: amount },
+        name,
+        capital: initialCapital,
+        lockedCapital: 0,
       },
     });
+
+    return pool;
+  }
+
+  async addCapital(poolId: string, amount: number) {
+    const pool = await this.prisma.insurancePool.findUnique({
+      where: { id: poolId },
+    });
+
+    if (!pool) {
+      throw new NotFoundException(`Pool ${poolId} not found`);
+    }
+
+    const updatedPool = await this.prisma.insurancePool.update({
+      where: { id: poolId },
+      data: {
+        capital: { increment: amount },
+      },
+    });
+
+    return updatedPool;
   }
 
   async lockCapital(poolId: string, amount: number) {
-    return this.prisma.pool.update({
+    const pool = await this.prisma.insurancePool.findUnique({
+      where: { id: poolId },
+    });
+
+    if (!pool) {
+      throw new NotFoundException(`Pool ${poolId} not found`);
+    }
+
+    const updatedPool = await this.prisma.insurancePool.update({
       where: { id: poolId },
       data: {
-        lockedAmount: { increment: amount },
-        availableLiquidity: { decrement: amount },
+        lockedCapital: { increment: amount },
       },
+    });
+
+    return updatedPool;
+  }
+
+  async getPoolById(poolId: string) {
+    return this.prisma.insurancePool.findUnique({
+      where: { id: poolId },
+      include: { insurancePolicies: true, claims: true },
+    });
+  }
+
+  async getAllPools() {
+    return this.prisma.insurancePool.findMany({
+      orderBy: { createdAt: 'desc' },
     });
   }
 }
