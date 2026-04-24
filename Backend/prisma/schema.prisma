@@ -30,6 +30,12 @@ model User {
   reputationHistory    ReputationHistory[]
 
 
+  // Dispute Relations
+  reputationDisputes   ReputationDispute[]
+  moderatedDisputes    ReputationDispute[] @relation("DisputeModerator")
+  disputeComments      DisputeComment[]
+  resolvedDisputes     DisputeResolution[] @relation("ResolutionModerator")
+
   @@map("users")
 }
 
@@ -103,6 +109,62 @@ model ReputationHistory {
   @@map("reputation_history")
 }
 
+model ReputationActivity {
+  id           String             @id @default(cuid())
+  subjectId    String             @map("subject_id")
+  subject      User               @relation("ReputationSubject", fields: [subjectId], references: [id])
+  actorId      String?            @map("actor_id")
+  actor        User?              @relation("ReputationActor", fields: [actorId], references: [id])
+  activityType ActivityType       @map("activity_type")
+  value        Decimal            @db.Decimal(18, 4)
+  referenceId  String?            @map("reference_id")
+  occurredAt   DateTime           @map("occurred_at")
+  createdAt    DateTime           @default(now())
+
+  // Dispute Relations
+  reputationDisputes ReputationDispute[]
+
+  @@index([subjectId])
+  @@index([subjectId, activityType])
+  @@index([occurredAt])
+  @@map("reputation_activities")
+}
+
+model ReputationScore {
+  id                     String   @id @default(cuid())
+  subjectId              String   @unique @map("subject_id")
+  subject                User     @relation(fields: [subjectId], references: [id])
+  compositeScore         Decimal  @map("composite_score") @db.Decimal(6, 2)
+  successRateScore       Decimal  @map("success_rate_score") @db.Decimal(6, 2)
+  peerRatingScore        Decimal  @map("peer_rating_score") @db.Decimal(6, 2)
+  contributionSizeScore  Decimal  @map("contribution_size_score") @db.Decimal(6, 2)
+  communityFeedbackScore Decimal  @map("community_feedback_score") @db.Decimal(6, 2)
+  reliabilityScore       Decimal  @default(50) @map("reliability_score") @db.Decimal(6, 2)
+  expertiseScore         Decimal  @default(0) @map("expertise_score") @db.Decimal(6, 2)
+  communityScore         Decimal  @default(50) @map("community_score") @db.Decimal(6, 2)
+  activityCount          Int      @map("activity_count")
+  lowConfidence          Boolean  @default(false) @map("low_confidence")
+  calculatedAt           DateTime @updatedAt @map("calculated_at")
+
+  @@map("reputation_scores")
+}
+
+model ReputationDecayHistory {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  previousScore   Int      @map("previous_score")
+  newScore        Int      @map("new_score")
+  scoreChange     Int      @map("score_change")
+  decayFactor     Decimal  @map("decay_factor") @db.Decimal(6, 4)
+  activitiesCount Int      @map("activities_count")
+  exempted        Boolean  @default(false)
+  reason          String
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+
+  @@index([userId])
+  @@index([occurredAt])
+  @@map("reputation_decay_history")
+}
 
 }
 
@@ -347,3 +409,611 @@ model ReinsuranceContract {
   FAILED
 }
 
+enum AccountingProvider {
+  QUICKBOOKS
+  XERO
+  FRESHBOOKS
+  WAVE
+}
+
+// Regenerative Finance Models
+
+model FundingRound {
+  id                String            @id @default(cuid())
+  title             String
+  description       String?
+  type              FundingRoundType  @default(QUADRATIC)
+  status            FundingRoundStatus @default(UPCOMING)
+  startTime         DateTime          @map("start_time")
+  endTime           DateTime          @map("end_time")
+  matchingPool      BigInt            @default(0) @map("matching_pool")
+  totalContributions BigInt           @default(0) @map("total_contributions")
+  totalMatched      BigInt            @default(0) @map("total_matched")
+  metadata          Json?             @map("metadata")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  projects          FundingRoundProject[]
+  contributions      QuadraticContribution[]
+  impactCertificates ImpactCertificate[]
+  poolAllocations   PoolAllocation[]
+
+  @@map("funding_rounds")
+}
+
+model PublicGoodsProject {
+  id                String            @id @id @default(cuid())
+  projectId         String?           @unique @map("project_id")
+  project           Project?          @relation(fields: [projectId], references: [id])
+  title             String
+  description       String
+  category          String
+  walletAddress     String            @map("wallet_address")
+  impactMetrics     Json?             @map("impact_metrics")
+  verificationData  Json?             @map("verification_data")
+  status            ProjectStatus      @default(ACTIVE)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  roundProjects     FundingRoundProject[]
+  contributions     QuadraticContribution[]
+  impactCertificates ImpactCertificate[]
+  retroactiveFunding RetroactiveFunding[]
+
+  @@map("public_goods_projects")
+}
+
+model FundingRoundProject {
+  id                   String     @id @default(cuid())
+  fundingRoundId       String     @map("funding_round_id")
+  fundingRound         FundingRound @relation(fields: [fundingRoundId], references: [id])
+  publicGoodsProjectId String     @map("public_goods_project_id")
+  publicGoodsProject   PublicGoodsProject @relation(fields: [publicGoodsProjectId], references: [id])
+  uniqueContributors   Int        @default(0) @map("unique_contributors")
+  totalContributions   BigInt     @default(0) @map("total_contributions")
+  matchedAmount        BigInt     @default(0) @map("matched_amount")
+  status               ProjectParticipationStatus @default(APPROVED)
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  contributions QuadraticContribution[]
+
+  @@unique([fundingRoundId, publicGoodsProjectId])
+  @@map("funding_round_projects")
+}
+
+model QuadraticContribution {
+  id                   String   @id @default(cuid())
+  fundingRoundId       String   @map("funding_round_id")
+  fundingRound         FundingRound @relation(fields: [fundingRoundId], references: [id])
+  publicGoodsProjectId String   @map("public_goods_project_id")
+  publicGoodsProject   PublicGoodsProject @relation(fields: [publicGoodsProjectId], references: [id])
+  fundingRoundProjectId String? @map("funding_round_project_id")
+  fundingRoundProject FundingRoundProject? @relation(fields: [fundingRoundProjectId], references: [id])
+  contributorAddress   String   @map("contributor_address")
+  amount               BigInt
+  voiceCredits         BigInt   @default(0) @map("voice_credits")
+  transactionHash      String   @unique @map("transaction_hash")
+  timestamp            DateTime @default(now())
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([fundingRoundId, contributorAddress])
+  @@index([publicGoodsProjectId])
+  @@map("quadratic_contributions")
+}
+
+model ImpactCertificate {
+  id                   String              @id @default(cuid())
+  tokenId              String              @unique @map("token_id")
+  fundingRoundId       String              @map("funding_round_id")
+  fundingRound         FundingRound        @relation(fields: [fundingRoundId], references: [id])
+  publicGoodsProjectId String              @map("public_goods_project_id")
+  publicGoodsProject   PublicGoodsProject  @relation(fields: [publicGoodsProjectId], references: [id])
+  issuerAddress        String              @map("issuer_address")
+  holderAddress        String              @map("holder_address")
+  impactMetrics        Json                @map("impact_metrics")
+  verificationData     Json?               @map("verification_data")
+  status               CertificateStatus   @default(ACTIVE)
+  issuedAt             DateTime            @default(now()) @map("issued_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  @@map("impact_certificates")
+}
+
+model RetroactiveFunding {
+  id                   String              @id @default(cuid())
+  publicGoodsProjectId String              @map("public_goods_project_id")
+  publicGoodsProject   PublicGoodsProject  @relation(fields: [publicGoodsProjectId], references: [id])
+  evaluatorAddress     String              @map("evaluator_address")
+  impactScore          Decimal             @map("impact_score")
+  fundingAmount        BigInt              @map("funding_amount")
+  evaluationCriteria   Json                @map("evaluation_criteria")
+  supportingEvidence   Json?               @map("supporting_evidence")
+  status               FundingStatus       @default(PENDING)
+  evaluatedAt          DateTime            @default(now()) @map("evaluated_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  @@map("retroactive_funding")
+}
+
+model MatchingPool {
+  id                   String            @id @default(cuid())
+  name                 String
+  description          String?
+  totalAmount          BigInt            @map("total_amount")
+  allocatedAmount      BigInt            @default(0) @map("allocated_amount")
+  source               MatchingPoolSource @default(PROTOCOL_FEES)
+  percentageFee        Decimal           @default(0.01) @map("percentage_fee")
+  isActive             Boolean           @default(true) @map("is_active")
+  metadata             Json?             @map("metadata")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  allocations          PoolAllocation[]
+
+  @@map("matching_pools")
+}
+
+model PoolAllocation {
+  id                   String       @id @default(cuid())
+  matchingPoolId       String       @map("matching_pool_id")
+  matchingPool         MatchingPool @relation(fields: [matchingPoolId], references: [id])
+  fundingRoundId       String?      @map("funding_round_id")
+  fundingRound         FundingRound? @relation(fields: [fundingRoundId], references: [id])
+  amount               BigInt
+  allocatedAt          DateTime     @default(now()) @map("allocated_at")
+  createdAt            DateTime     @default(now()) @map("created_at")
+
+  @@map("pool_allocations")
+}
+
+model ImpactMetric {
+  id                   String   @id @default(cuid())
+  publicGoodsProjectId String   @map("public_goods_project_id")
+  metricName           String   @map("metric_name")
+  metricValue          String   @map("metric_value")
+  unit                 String?
+  timestamp            DateTime @default(now())
+  verified             Boolean  @default(false)
+  verificationSource   String?  @map("verification_source")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([publicGoodsProjectId])
+  @@index([metricName])
+  @@map("impact_metrics")
+}
+
+model IntegrationConfig {
+  id                   String               @id @default(cuid())
+  platform             IntegrationPlatform
+  config               Json
+  isActive             Boolean              @default(true) @map("is_active")
+  lastSyncAt           DateTime?            @map("last_sync_at")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+
+  @@unique([platform])
+  @@map("integration_configs")
+}
+
+enum FundingRoundType {
+  QUADRATIC
+  RETROACTIVE
+  IMPACT_MARKET
+}
+
+enum FundingRoundStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectParticipationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum CertificateStatus {
+  ACTIVE
+  BURNED
+  TRANSFERRED
+  EXPIRED
+}
+
+enum FundingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum MatchingPoolSource {
+  PROTOCOL_FEES
+  DIRECT_DEPOSIT
+  TREASURY
+  EXTERNAL_GRANT
+}
+
+enum IntegrationPlatform {
+  GITCOIN
+  CLR_FUND
+  GITHUB
+  DISCORD
+}
+
+// Trading Competition Models
+
+model TradingCompetition {
+  id                  String               @id @default(cuid())
+  title               String
+  description         String?
+  type                CompetitionType
+  durationType        DurationType
+  startTime           DateTime             @map("start_time")
+  endTime             DateTime             @map("end_time")
+  status              CompetitionStatus    @default(UPCOMING)
+  prizePool           Decimal              @default(0) @map("prize_pool")
+  maxParticipants     Int?                 @map("max_participants")
+  minDeposit          Decimal              @default(0) @map("min_deposit")
+  requiredKycTier     Int                  @default(0) @map("required_kyc_tier")
+  entryFee            Decimal              @default(0) @map("entry_fee")
+  prizeDistribution   Json                 @map("prize_distribution")
+  rules               Json?
+  createdBy           String               @map("created_by")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  // Relations
+  participants        CompetitionParticipant[]
+  leaderboard         CompetitionLeaderboard[]
+  trades              CompetitionTrade[]
+  achievements         CompetitionAchievement[]
+  antiCheatFlags      AntiCheatFlag[]
+  prizeDistributions  PrizeDistribution[]
+
+  @@map("trading_competitions")
+}
+
+model CompetitionParticipant {
+  id             String     @id @default(cuid())
+  competitionId  String     @map("competition_id")
+  competition    TradingCompetition @relation(fields: [competitionId], references: [id])
+  userId         String     @map("user_id")
+  user           User       @relation(fields: [userId], references: [id])
+  status         ParticipantStatus @default(REGISTERED)
+  joinedAt       DateTime   @default(now()) @map("joined_at")
+  initialBalance Decimal    @default(0) @map("initial_balance")
+  finalBalance   Decimal?   @map("final_balance")
+  totalVolume    Decimal    @default(0) @map("total_volume")
+  totalReturn    Decimal    @default(0) @map("total_return")
+  sharpeRatio    Decimal?   @map("sharpe_ratio")
+  maxDrawdown    Decimal    @default(0) @map("max_drawdown")
+  winRate        Decimal    @default(0) @map("win_rate")
+  rank           Int?
+  prizeAmount    Decimal?   @map("prize_amount")
+  disqualified   Boolean    @default(false) @map("disqualified")
+  disqualificationReason String? @map("disqualification_reason")
+  
+  // Relations
+  trades         CompetitionTrade[]
+  
+  @@unique([competitionId, userId])
+  @@map("competition_participants")
+}
+
+model CompetitionTrade {
+  id              String     @id @default(cuid())
+  competitionId   String     @map("competition_id")
+  competition     TradingCompetition @relation(fields: [competitionId], references: [id])
+  participantId   String     @map("participant_id")
+  participant     CompetitionParticipant @relation(fields: [participantId], references: [id])
+  userId          String     @map("user_id")
+  asset           String
+  side            TradeSide
+  quantity        Decimal
+  price           Decimal
+  totalValue      Decimal    @map("total_value")
+  fee             Decimal    @default(0)
+  timestamp       DateTime   @default(now())
+  transactionHash String?    @map("transaction_hash")
+  profitLoss      Decimal?   @map("profit_loss")
+  
+  @@index([competitionId, userId])
+  @@index([participantId])
+  @@index([timestamp])
+  @@map("competition_trades")
+}
+
+model CompetitionLeaderboard {
+  id             String     @id @default(cuid())
+  competitionId  String     @map("competition_id")
+  competition    TradingCompetition @relation(fields: [competitionId], references: [id])
+  userId         String     @map("user_id")
+  user           User       @relation(fields: [userId], references: [id])
+  rank           Int
+  score          Decimal
+  totalReturn    Decimal    @map("total_return")
+  totalVolume    Decimal    @map("total_volume")
+  sharpeRatio    Decimal?   @map("sharpe_ratio")
+  maxDrawdown    Decimal    @map("max_drawdown")
+  winRate        Decimal    @default(0) @map("win_rate")
+  lastUpdated    DateTime   @default(now()) @map("last_updated")
+  
+  @@unique([competitionId, userId])
+  @@index([competitionId, rank])
+  @@map("competition_leaderboard")
+}
+
+model CompetitionAchievement {
+  id            String           @id @default(cuid())
+  competitionId String           @map("competition_id")
+  competition   TradingCompetition @relation(fields: [competitionId], references: [id])
+  userId        String           @map("user_id")
+  user          User             @relation(fields: [userId], references: [id])
+  type          AchievementType
+  title         String
+  description   String
+  icon          String?
+  earnedAt      DateTime         @default(now()) @map("earned_at")
+  shared        Boolean          @default(false)
+  shareUrl      String?          @map("share_url")
+  
+  @@map("competition_achievements")
+}
+
+model AntiCheatFlag {
+  id             String         @id @default(cuid())
+  competitionId  String         @map("competition_id")
+  competition    TradingCompetition @relation(fields: [competitionId], references: [id])
+  userId         String         @map("user_id")
+  user           User           @relation(fields: [userId], references: [id])
+  type           FlagType
+  severity       FlagSeverity
+  description    String
+  evidence       Json?
+  status         FlagStatus     @default(PENDING)
+  reviewedBy     String?        @map("reviewed_by")
+  reviewedAt     DateTime?      @map("reviewed_at")
+  action         String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  
+  @@index([competitionId, userId])
+  @@index([status])
+  @@map("anti_cheat_flags")
+}
+
+model PrizeDistribution {
+  id             String     @id @default(cuid())
+  competitionId  String     @map("competition_id")
+  competition    TradingCompetition @relation(fields: [competitionId], references: [id])
+  userId         String     @map("user_id")
+  user           User       @relation(fields: [userId], references: [id])
+  rank           Int
+  prizeAmount    Decimal    @map("prize_amount")
+  currency       String     @default("USD")
+  status         PrizeStatus @default(PENDING)
+  transactionHash String?   @map("transaction_hash")
+  distributedAt  DateTime?  @map("distributed_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  
+  @@index([competitionId, userId])
+  @@index([status])
+  @@map("prize_distributions")
+}
+
+enum CompetitionType {
+  HIGHEST_RETURN
+  MOST_VOLUME
+  BEST_SHARPE
+  HIGHEST_WINS
+  LOWEST_DRAWDOWN
+}
+
+enum DurationType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum CompetitionStatus {
+  UPCOMING
+  ACTIVE
+  FINISHED
+  CANCELLED
+  SUSPENDED
+}
+
+enum ParticipantStatus {
+  REGISTERED
+  ACTIVE
+  FINISHED
+  DISQUALIFIED
+  WITHDRAWN
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+enum AchievementType {
+  FIRST_PLACE
+  TOP_THREE
+  TOP_TEN
+  HIGHEST_RETURN
+  MOST_VOLUME
+  BEST_RISK_ADJUSTED
+  WIN_STREAK
+  CONSISTENT_PERFORMANCE
+}
+
+enum FlagType {
+  WASH_TRADING
+  SELF_DEALING
+  MANIPULATION
+  BOTS
+  MULTIPLE_ACCOUNTS
+  UNUSUAL_PATTERN
+}
+
+enum FlagSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FlagStatus {
+  PENDING
+  REVIEWING
+  CONFIRMED
+  DISMISSED
+  ACTION_TAKEN
+}
+
+enum PrizeStatus {
+  PENDING
+  APPROVED
+  PAID
+  FAILED
+  CANCELLED
+}
+
+// Reputation Dispute Models
+
+model ReputationDispute {
+  id                String               @id @default(cuid())
+  userId            String               @map("user_id")
+  user              User                 @relation(fields: [userId], references: [id])
+  disputedActivityId String?             @map("disputed_activity_id")
+  disputedActivity  ReputationActivity?  @relation(fields: [disputedActivityId], references: [id])
+  disputeType       DisputeType          @map("dispute_type")
+  reason            String
+  description       String
+  evidence          Json?                @map("evidence")
+  previousScore     Int                  @map("previous_score")
+  requestedScore    Int?                 @map("requested_score")
+  status            DisputeStatus        @default(PENDING)
+  priority          DisputePriority      @default(MEDIUM)
+  moderatorId       String?              @map("moderator_id")
+  moderator         User?                @relation("DisputeModerator", fields: [moderatorId], references: [id])
+  moderatorNotes    String?              @map("moderator_notes")
+  resolution        DisputeResolution?   @relation(fields: [resolutionId], references: [id])
+  resolutionId      String?              @map("resolution_id")
+  automatedResolution Boolean            @default(false) @map("automated_resolution")
+  submittedAt       DateTime             @default(now()) @map("submitted_at")
+  reviewedAt        DateTime?            @map("reviewed_at")
+  resolvedAt        DateTime?            @map("resolved_at")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  @@index([userId, status])
+  @@index([status, priority])
+  @@index([moderatorId])
+  @@index([submittedAt])
+  @@map("reputation_disputes")
+}
+
+model DisputeResolution {
+  id                  String               @id @default(cuid())
+  disputeId           String               @unique @map("dispute_id")
+  dispute             ReputationDispute    @relation(fields: [disputeId], references: [id])
+  finalScore          Int?                 @map("final_score")
+  scoreAdjustment     Int                  @map("score_adjustment")
+  resolutionType      ResolutionType       @map("resolution_type")
+  explanation         String
+  evidence            Json?                @map("evidence")
+  moderatorId         String?              @map("moderator_id")
+  moderator           User?                @relation("ResolutionModerator", fields: [moderatorId], references: [id])
+  approvedBy          String?              @map("approved_by")
+  approvalNotes       String?              @map("approval_notes")
+  isFinal             Boolean              @default(true) @map("is_final")
+  canAppeal           Boolean              @default(true) @map("can_appeal")
+  appealDeadline      DateTime?            @map("appeal_deadline")
+  resolvedAt          DateTime             @default(now()) @map("resolved_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+
+  @@map("dispute_resolutions")
+}
+
+model DisputeComment {
+  id         String            @id @default(cuid())
+  disputeId  String            @map("dispute_id")
+  dispute    ReputationDispute @relation(fields: [disputeId], references: [id])
+  authorId   String            @map("author_id")
+  author     User              @relation(fields: [authorId], references: [id])
+  content    String
+  isInternal Boolean           @default(false) @map("is_internal")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  @@index([disputeId, createdAt])
+  @@index([authorId])
+  @@map("dispute_comments")
+}
+
+model DisputeMetrics {
+  id                    String   @id @default(cuid())
+  totalDisputes         Int      @default(0) @map("total_disputes")
+  pendingDisputes       Int      @default(0) @map("pending_disputes")
+  resolvedDisputes      Int      @default(0) @map("resolved_disputes")
+  automatedResolutions  Int      @default(0) @map("automated_resolutions")
+  averageResolutionTime Float    @default(0) @map("average_resolution_time")
+  successRate           Float    @default(0) @map("success_rate")
+  appealRate            Float    @default(0) @map("appeal_rate")
+  period                String   @map("period") // 'daily', 'weekly', 'monthly'
+  periodStart           DateTime @map("period_start")
+  periodEnd             DateTime @map("period_end")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([period, periodStart])
+  @@map("dispute_metrics")
+}
+
+enum DisputeType {
+  SCORE_CALCULATION_ERROR
+  UNFAIR_ACTIVITY_RECORDING
+  MISSING_ACTIVITY
+  DUPLICATE_ACTIVITY
+  DECAY_DISAGREEMENT
+  TECHNICAL_GLITCH
+  OTHER
+}
+
+enum DisputeStatus {
+  PENDING
+  UNDER_REVIEW
+  AWAITING_EVIDENCE
+  RESOLVED
+  REJECTED
+  APPEALED
+  CLOSED
+}
+
+enum DisputePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ResolutionType {
+  SCORE_ADJUSTMENT
+  ACTIVITY_CORRECTION
+  DECAY_REVERSAL
+  FULL_REVERSAL
+  MANUAL_OVERRIDE
+  AUTOMATED_CORRECTION
+  REJECTED
+}
