@@ -18,6 +18,14 @@ export enum ActivityType {
   DISPUTE_LOST = 'DISPUTE_LOST',
   /** A high-value contribution flagged by admins or automated scoring. */
   HIGH_VALUE_CONTRIBUTION = 'HIGH_VALUE_CONTRIBUTION',
+  /** A project was successfully completed. */
+  PROJECT_COMPLETION = 'PROJECT_COMPLETION',
+  /** A milestone was achieved within a project. */
+  MILESTONE_ACHIEVEMENT = 'MILESTONE_ACHIEVEMENT',
+  /** A social interaction such as comment or review. */
+  SOCIAL_INTERACTION = 'SOCIAL_INTERACTION',
+  /** A comment marked as helpful by other users. */
+  HELPFUL_COMMENT = 'HELPFUL_COMMENT',
 }
 
 /**
